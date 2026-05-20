@@ -96,6 +96,7 @@ const LeadManagementDashboard = () => {
       } else {
         console.error('Error fetching leads:', error);
       }
+      setHasMore(false); // Stop pagination if there's an error (like 401)
     } finally {
       setIsLoading(false);
     }
