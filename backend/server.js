@@ -15,7 +15,7 @@ const app = express();
 
 // Middleware
 app.use(cors({
-  origin: 'http://localhost:5173', // Vite default port, adjust if needed
+  origin: ['http://localhost:5173', 'https://client-leeds.vercel.app'],
   credentials: true
 }));
 app.use(express.json());
