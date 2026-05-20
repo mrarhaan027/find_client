@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 
-axios.defaults.baseURL = 'http://localhost:5000';
+axios.defaults.baseURL = 'https://client-leeds.onrender.com';
 axios.defaults.withCredentials = true;
 import { useNavigate, useLocation } from 'react-router-dom';
 import AddLeadModal from '../Components/AddLeadModal';
