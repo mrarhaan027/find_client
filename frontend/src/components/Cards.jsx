@@ -353,13 +353,26 @@ const SkeletonCard = () => (
 const Cards = ({ likedIds, onLike, activeTab, search, filterStatus, filterRating, sort, filterDate, refreshKey, currentUser, onLeadChange }) => {
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [fetchingMore, setFetchingMore] = useState(false);
   const [error, setError] = useState('');
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
 
-  const fetchLeads = useCallback(async () => {
-    setLoading(true);
+  // When filters or tab change, reset pagination and leads
+  useEffect(() => {
+    setPage(1);
+    setLeads([]);
+    setHasMore(true);
+  }, [activeTab, search, filterStatus, filterRating, sort, filterDate, refreshKey]);
+
+  const fetchLeads = useCallback(async (currentPage) => {
+    if (currentPage === 1) setLoading(true);
+    else setFetchingMore(true);
+    
     setError('');
+    
     try {
-      const params = {};
+      const params = { page: currentPage, limit: 20 };
       if (search) params.search = search;
       if (filterStatus && filterStatus !== 'all') params.status = filterStatus;
       if (filterRating && filterRating !== 'all') params.rating = filterRating;
@@ -368,17 +381,57 @@ const Cards = ({ likedIds, onLike, activeTab, search, filterStatus, filterRating
 
       const endpoint = activeTab === 'my' ? '/api/leads/my' : '/api/leads';
       const { data } = await API.get(endpoint, { params });
-      if (data.success) setLeads(data.leads);
+      
+      if (data.success) {
+        if (currentPage === 1) {
+          setLeads(data.leads);
+        } else {
+          setLeads(prev => [...prev, ...data.leads]);
+        }
+        
+        // If we received fewer leads than the limit, or data.pages logic says so, we reached the end
+        if (data.leads.length < 20 || (data.pages && currentPage >= data.pages)) {
+          setHasMore(false);
+        } else {
+          setHasMore(true);
+        }
+      }
     } catch (err) {
       if (err.response?.status === 401) {
         setError('Please sign in to view your leads.');
       } else {
         setError('Failed to load leads. Is the backend running?');
       }
-    } finally { setLoading(false); }
-  }, [activeTab, search, filterStatus, filterRating, sort, filterDate, refreshKey]);
+      setHasMore(false);
+    } finally { 
+      setLoading(false);
+      setFetchingMore(false);
+    }
+  }, [activeTab, search, filterStatus, filterRating, sort, filterDate]);
 
-  useEffect(() => { fetchLeads(); }, [fetchLeads]);
+  useEffect(() => {
+    fetchLeads(page);
+  }, [page, fetchLeads]);
+
+  // Infinite Scroll Listener
+  useEffect(() => {
+    const handleScroll = () => {
+      // If currently loading, fetching more, or no more data, do nothing
+      if (loading || fetchingMore || !hasMore) return;
+      
+      // Calculate how far from bottom
+      const scrollY = window.scrollY;
+      const windowHeight = window.innerHeight;
+      const documentHeight = document.documentElement.scrollHeight;
+      
+      if (scrollY + windowHeight >= documentHeight - 200) {
+        setPage(prev => prev + 1);
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [loading, fetchingMore, hasMore]);
 
   const handleDeleted = (id) => {
     setLeads(prev => prev.filter(l => l._id !== id));
@@ -389,16 +442,15 @@ const Cards = ({ likedIds, onLike, activeTab, search, filterStatus, filterRating
     if (onLeadChange) onLeadChange();
   };
 
-  if (loading) {
-    const skeletonCount = leads.length > 0 ? leads.length : 3;
+  if (loading && leads.length === 0) {
     return (
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '12px', paddingBottom: '24px' }}>
-        {Array.from({ length: skeletonCount }).map((_, i) => <SkeletonCard key={i} />)}
+        {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)}
       </div>
     );
   }
 
-  if (error) return (
+  if (error && leads.length === 0) return (
     <div style={{ textAlign: 'center', padding: '60px 20px' }}>
       <span className="material-symbols-outlined" style={{ fontSize: '48px', color: '#e11d48', display: 'block', marginBottom: '12px' }}>error</span>
       <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '16px', color: '#44474c' }}>{error}</p>
@@ -416,19 +468,34 @@ const Cards = ({ likedIds, onLike, activeTab, search, filterStatus, filterRating
   );
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '12px', paddingBottom: '24px' }}>
-      {leads.map(lead => (
-        <LeadCard
-          key={lead._id}
-          lead={lead}
-          isLiked={likedIds.includes(lead._id)}
-          onLike={() => onLike(lead)}
-          currentUser={currentUser}
-          onDeleted={handleDeleted}
-          onEdited={handleEdited}
-        />
-      ))}
-    </div>
+    <>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '12px', paddingBottom: fetchingMore ? '12px' : '24px' }}>
+        {leads.map(lead => (
+          <LeadCard
+            key={lead._id}
+            lead={lead}
+            isLiked={likedIds.includes(lead._id)}
+            onLike={() => onLike(lead)}
+            currentUser={currentUser}
+            onDeleted={handleDeleted}
+            onEdited={handleEdited}
+          />
+        ))}
+      </div>
+      
+      {/* Loading indicator at bottom when fetching more */}
+      {fetchingMore && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '12px', paddingBottom: '24px' }}>
+          {Array.from({ length: 3 }).map((_, i) => <SkeletonCard key={`more-${i}`} />)}
+        </div>
+      )}
+      
+      {!hasMore && leads.length > 0 && (
+        <div style={{ textAlign: 'center', padding: '20px 0 40px 0', fontFamily: "'DM Sans', sans-serif", fontSize: '14px', color: '#778598' }}>
+          You have reached the end of the list.
+        </div>
+      )}
+    </>
   );
 };
 

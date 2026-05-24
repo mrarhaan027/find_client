@@ -102,7 +102,7 @@ exports.getLeads = async (req, res) => {
 // ── GET MY LEADS ──
 exports.getMyLeads = async (req, res) => {
   try {
-    const { search = '', status = '', rating = '' } = req.query;
+    const { search = '', status = '', rating = '', page = 1, limit = 20 } = req.query;
 
     const query = { createdBy: req.user._id };
 
@@ -129,14 +129,22 @@ exports.getMyLeads = async (req, res) => {
     if (req.query.sort === 'a_z') sortOptions = { clientName: 1 };
     if (req.query.sort === 'z_a') sortOptions = { clientName: -1 };
 
+    const skip = (Number(page) - 1) * Number(limit);
+
     const leads = await Lead.find(query)
       .populate('createdBy', 'name email photo')
-      .sort(sortOptions);
+      .sort(sortOptions)
+      .skip(skip)
+      .limit(Number(limit));
+
+    const total = await Lead.countDocuments(query);
 
     res.status(200).json({
       success: true,
       leads: leads.map(formatLead),
-      total: leads.length,
+      total,
+      page: Number(page),
+      pages: Math.ceil(total / Number(limit)),
     });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Server error.' });
