@@ -4,7 +4,7 @@ import { createContext, useContext, useState, useEffect, useCallback } from 'rea
 const AuthContext = createContext(null);
 
 export const API = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000',
+  baseURL: import.meta.env.VITE_API_URL || 'https://client-leeds-1.onrender.com',
   withCredentials: true,
 });
 
