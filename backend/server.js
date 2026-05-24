@@ -1,45 +1,54 @@
+require('dns').setServers(['8.8.8.8', '8.8.4.4', '1.1.1.1']); // Fix Atlas SRV lookup
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
-const connectDB = require('./Config/db');
-const authRoutes = require('./Routes/authRoutes');
-const leadRoutes = require('./Routes/leadRoutes');
+const connectDB = require('./config/db');
 
-const port = process.env.PORT || 5000;
+const authRoutes = require('./routes/authRoutes');
+const leadRoutes = require('./routes/leadRoutes');
 
-// Connect to database
+// Connect to MongoDB
 connectDB();
 
 const app = express();
 
-// Middleware
-app.use(cors({
-  origin: ['http://localhost:5173', 'https://client-leeds.vercel.app'],
-  credentials: true
-}));
+// ── Middleware ──
 app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// Routes
+// CORS — allow frontend
+app.use(cors({
+  origin: ['http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
+
+
+
+// ── Routes ──
 app.use('/api/auth', authRoutes);
 app.use('/api/leads', leadRoutes);
 
-// Base route for testing
+// Health check
 app.get('/', (req, res) => {
-  res.status(200).json({ success: true, message: 'Welcome to LeadFlow CRM API' });
+  res.json({ message: '✅ LeadForge API running', status: 'ok' });
 });
 
-// 404 handler
-app.use((req, res, next) => {
+// ── 404 Handler ──
+app.use((req, res) => {
   res.status(404).json({ success: false, message: 'Route not found' });
 });
 
-// General error handler
+// ── Error Handler ──
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  res.status(500).json({ success: false, message: err.message || 'Server Error' });
+  res.status(500).json({ success: false, message: err.message || 'Internal Server Error' });
 });
 
-app.listen(port, () => console.log(`Server started on port ${port}`));
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
+});

@@ -1,145 +1,137 @@
 const jwt = require('jsonwebtoken');
-const User = require('../models/User');
+const User = require('../schema/User');
 
-// Generate JWT
-const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, {
-    expiresIn: '30d',
+// ── Helper: Create JWT and set cookie ──
+const sendTokenResponse = (user, statusCode, res) => {
+  const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+    expiresIn: '7d',
+  });
+
+  const cookieOptions = {
+    httpOnly: true,
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    secure: process.env.NODE_ENV === 'production',
+  };
+
+  res.cookie('token', token, cookieOptions);
+
+  // Remove password from output
+  const userData = {
+    _id: user._id,
+    name: user.name,
+    email: user.email,
+    mobile: user.mobile,
+    photo: user.photo,
+    provider: user.provider,
+  };
+
+  res.status(statusCode).json({
+    success: true,
+    token,
+    user: userData,
   });
 };
 
-// @desc    Register a new user
-// @route   POST /api/auth/signup
-// @access  Public
-const signup = async (req, res) => {
+// ── SIGNUP ──
+exports.signup = async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, mobile } = req.body;
 
     if (!name || !email || !password) {
-      return res.status(400).json({ success: false, message: 'Please add all fields' });
+      return res.status(400).json({ success: false, message: 'Name, email and password are required.' });
     }
 
-    // Check if any user already exists (Only one admin allowed)
-    const userCount = await User.countDocuments();
-    if (userCount > 0) {
-      return res.status(403).json({ success: false, message: 'Signup disabled. Only one admin account is allowed in the system.' });
+    // Check if user exists
+    const existing = await User.findOne({ email });
+    if (existing) {
+      return res.status(400).json({ success: false, message: 'Email already registered. Please sign in.' });
     }
 
-    // Check if user exists (just in case)
-    const userExists = await User.findOne({ email });
-
-    if (userExists) {
-      return res.status(400).json({ success: false, message: 'User already exists' });
-    }
-
-    // Create user
-    const user = await User.create({
-      name,
-      email,
-      password,
-    });
-
-    if (user) {
-      const token = generateToken(user._id);
-      
-      // Set JWT in HttpOnly cookie
-      res.cookie('token', token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
-        maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
-      });
-
-      res.status(201).json({
-        success: true,
-        message: 'User registered successfully',
-        data: {
-          _id: user.id,
-          name: user.name,
-          email: user.email,
-        }
-      });
-    } else {
-      res.status(400).json({ success: false, message: 'Invalid user data' });
-    }
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    const user = await User.create({ name, email, password, mobile: mobile || '' });
+    sendTokenResponse(user, 201, res);
+  } catch (err) {
+    console.error('Signup error:', err);
+    res.status(500).json({ success: false, message: 'Server error. Please try again.' });
   }
 };
 
-// @desc    Authenticate a user
-// @route   POST /api/auth/signin
-// @access  Public
-const signin = async (req, res) => {
+// ── SIGNIN ──
+exports.signin = async (req, res) => {
   try {
     const { email, password } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({ success: false, message: 'Please add all fields' });
+      return res.status(400).json({ success: false, message: 'Email and password are required.' });
     }
 
-    // Check for user email
-    const user = await User.findOne({ email });
-
-    if (user && (await user.matchPassword(password))) {
-      const token = generateToken(user._id);
-
-      // Set JWT in HttpOnly cookie
-      res.cookie('token', token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
-        maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
-      });
-
-      res.json({
-        success: true,
-        message: 'Logged in successfully',
-        data: {
-          _id: user.id,
-          name: user.name,
-          email: user.email,
-        }
-      });
-    } else {
-      res.status(401).json({ success: false, message: 'Invalid credentials' });
+    // Get user with password
+    const user = await User.findOne({ email }).select('+password');
+    if (!user) {
+      return res.status(401).json({ success: false, message: 'Invalid email or password.' });
     }
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+
+    if (user.provider === 'google') {
+      return res.status(401).json({ success: false, message: 'Please sign in with Google.' });
+    }
+
+    const isMatch = user.comparePassword(password);
+    if (!isMatch) {
+      return res.status(401).json({ success: false, message: 'Invalid email or password.' });
+    }
+
+    sendTokenResponse(user, 200, res);
+  } catch (err) {
+    console.error('Signin error:', err);
+    res.status(500).json({ success: false, message: 'Server error. Please try again.' });
   }
 };
 
-// @desc    Logout user
-// @route   POST /api/auth/logout
-// @access  Public
-const logout = (req, res) => {
+// ── SIGNOUT ──
+exports.signout = (req, res) => {
   res.cookie('token', '', {
     httpOnly: true,
+    expires: new Date(0),
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
     secure: process.env.NODE_ENV === 'production',
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
-    expires: new Date(0)
   });
-  res.json({ success: true, message: 'Logged out successfully' });
+  res.status(200).json({ success: true, message: 'Signed out successfully.' });
 };
 
-// @desc    Get current logged in user
-// @route   GET /api/auth/me
-// @access  Private
-const getMe = async (req, res) => {
+// ── GET CURRENT USER ──
+exports.getMe = async (req, res) => {
   try {
-    const user = await User.findById(req.user.id).select('-password');
+    let token;
+    if (req.cookies && req.cookies.token) {
+      token = req.cookies.token;
+    } else if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+      token = req.headers.authorization.split(' ')[1];
+    }
+
+    if (!token) {
+      return res.status(200).json({ success: false, user: null });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.id);
+    
+    if (!user) {
+      return res.status(200).json({ success: false, user: null });
+    }
+
     res.status(200).json({
       success: true,
-      data: user
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        mobile: user.mobile,
+        photo: user.photo,
+        provider: user.provider,
+      },
     });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+  } catch (err) {
+    // Return 200 with success: false so browser doesn't throw 401 error in console
+    res.status(200).json({ success: false, user: null });
   }
-};
-
-module.exports = {
-  signup,
-  signin,
-  logout,
-  getMe
 };

@@ -1,14 +1,29 @@
 const express = require('express');
 const router = express.Router();
-const { getLeads, createLead, updateLead, deleteLead } = require('../Controllers/leadController');
-const { protect } = require('../middleware/authMiddleware');
+const {
+  getLeads,
+  getMyLeads,
+  getStatsAll,
+  getStatsMy,
+  addLead,
+  updateLead,
+  deleteLead,
+} = require('../controllers/leadController');
+const { protect } = require('../middleware/auth');
 
-router.route('/')
-  .get(protect, getLeads)
-  .post(protect, createLead);
+// Protected: all leads (with search + filter)
+router.get('/', protect, getLeads);
 
-router.route('/:id')
-  .put(protect, updateLead)
-  .delete(protect, deleteLead);
+// Protected: my leads
+router.get('/my', protect, getMyLeads);
+
+// Stats routes
+router.get('/stats/all', protect, getStatsAll);
+router.get('/stats/my', protect, getStatsMy);
+
+// Protected: add, edit, delete
+router.post('/', protect, addLead);
+router.put('/:id', protect, updateLead);
+router.delete('/:id', protect, deleteLead);
 
 module.exports = router;

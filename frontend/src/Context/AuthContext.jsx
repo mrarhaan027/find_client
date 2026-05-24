@@ -1,31 +1,32 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
 import axios from 'axios';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 
-const AuthContext = createContext();
+const AuthContext = createContext(null);
 
-export const useAuth = () => useContext(AuthContext);
+export const API = axios.create({
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000',
+  withCredentials: true,
+});
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
+
+  // Check if user is already logged in on mount
+  const checkAuth = useCallback(async () => {
+    try {
+      const { data } = await API.get('/api/auth/me');
+      if (data.success) setUser(data.user);
+    } catch {
+      setUser(null); // 401 = not logged in, that's fine
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    const verifyUser = async () => {
-      try {
-        const response = await axios.get('/api/auth/me');
-        if (response.data.success) {
-          setUser(response.data.data);
-        }
-      } catch (error) {
-        // User not logged in, ignore
-        setUser(null);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    verifyUser();
-  }, []);
+    checkAuth();
+  }, [checkAuth]);
 
   const login = (userData) => {
     setUser(userData);
@@ -33,16 +34,20 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     try {
-      await axios.post('/api/auth/logout');
-      setUser(null);
-    } catch (error) {
-      console.error('Logout failed:', error);
-    }
+      await API.post('/api/auth/signout');
+    } catch {}
+    setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, checkAuth }}>
       {children}
     </AuthContext.Provider>
   );
+};
+
+export const useAuth = () => {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used inside AuthProvider');
+  return ctx;
 };
