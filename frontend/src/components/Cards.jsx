@@ -1,6 +1,21 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { API } from '../context/AuthContext';
 
+/* ── WhatsApp Link Helper ── */
+const getWhatsAppLink = (phone) => {
+  if (!phone) return '';
+  let cleaned = phone.replace(/[^0-9]/g, '');
+  // Remove leading zero if present
+  if (cleaned.startsWith('0')) {
+    cleaned = cleaned.substring(1);
+  }
+  // If it's a 10-digit number, prepend '91' (default Indian country code)
+  if (cleaned.length === 10) {
+    cleaned = '91' + cleaned;
+  }
+  return `https://wa.me/${cleaned}`;
+};
+
 /* ── Star Rating ── */
 const StarRating = ({ rating }) => (
   <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
@@ -220,15 +235,42 @@ const LeadCard = ({ lead, isLiked, onLike, currentUser, onDeleted, onEdited }) =
                   )}
                 </span>
               </div>
+              {isOwner && (
+                <a
+                  href={getWhatsAppLink(lead.phone)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    color: '#25D366',
+                    textDecoration: 'none',
+                    transition: 'transform 0.2s',
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.15)'}
+                  onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                  title="Chat on WhatsApp"
+                >
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                    <path d="M12.012 2c-5.506 0-9.989 4.478-9.99 9.984a9.96 9.96 0 001.37 5.022L2 22l5.177-1.354a9.932 9.932 0 004.822 1.332h.004c5.507 0 9.99-4.478 9.99-9.985 0-2.667-1.037-5.176-2.927-7.067A9.896 9.896 0 0012.012 2zm5.72 13.916c-.237.669-1.378 1.282-1.92 1.386-.494.095-1.137.169-3.284-.717-2.746-1.134-4.52-3.93-4.656-4.114-.138-.184-1.12-1.488-1.12-2.84 0-1.352.707-2.015.96-2.277.253-.263.553-.328.738-.328.185 0 .369.002.53.01.168.008.397-.064.62.48.232.568.795 1.94.863 2.08.068.14.114.305.02.49-.09.186-.136.3-.27.46-.135.158-.283.354-.403.475-.136.136-.277.284-.12.553.157.27.7 1.15 1.502 1.861.802.71 1.478.93 1.685 1.038.207.107.328.09.45-.05.123-.14.53-.618.67-.828.14-.21.283-.177.476-.105.195.071 1.232.58 1.444.686.213.106.354.157.406.249.052.09.052.52-.185 1.19z"/>
+                  </svg>
+                </a>
+              )}
             </div>
           )}
 
           {/* Rating + Date */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
             <StarRating rating={lead.rating || 3} />
-            <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '11px', color: '#74777d' }}>
-              {lead.date} {lead.createdAt ? `at ${new Date(lead.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}
-            </span>
+            <div className="card-date-time-container">
+              <span className="card-date">{lead.date}</span>
+              {lead.createdAt && (
+                <span className="card-time">
+                  <span className="card-time-at">at </span>
+                  {new Date(lead.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              )}
+            </div>
           </div>
 
           {/* Contact Button */}
@@ -252,7 +294,7 @@ const LeadCard = ({ lead, isLiked, onLike, currentUser, onDeleted, onEdited }) =
               {/* User Avatar */}
               <div style={{ width: '38px', height: '38px', borderRadius: '50%', backgroundColor: '#d1e4fb', border: '1.5px solid rgba(196,198,204,0.4)', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'DM Sans', sans-serif", fontSize: '12px', fontWeight: 700, color: '#0d1b2a' }}>
                 {lead.avatar ? (
-                  <img src={lead.avatar} alt={lead.addedByName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <img src={lead.avatar} alt={lead.addedByName} referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 ) : (
                   <span>{lead.initials || 'U'}</span>
                 )}

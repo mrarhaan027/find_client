@@ -137,3 +137,25 @@ body {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+/* ── Card Date Time Responsive Stacking ──────────────────── */
+.card-date-time-container {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  color: var(--text-light, #74777d);
+}
+
+@media (max-width: 767px) {
+  .card-date-time-container {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+    text-align: right;
+  }
+  .card-date-time-container .card-time-at {
+    display: none;
+  }
+}

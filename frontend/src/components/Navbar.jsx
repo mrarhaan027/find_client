@@ -1,7 +1,30 @@
 import { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { API } from '../context/AuthContext';
 
 const Navbar = ({ onSignInClick, onSignUpClick, onAddLeadClick, likeCount = 0, onLikesClick, user, onLogout, isDarkMode, toggleTheme }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [sliderImages, setSliderImages] = useState([
+    'https://images.unsplash.com/photo-1556761175-5973dc0f32e7?auto=format&fit=crop&q=80&w=600',
+    'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=600',
+    'https://images.unsplash.com/photo-1600880292203-757bb62b4baf?auto=format&fit=crop&q=80&w=600'
+  ]);
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    const getSliderImages = async () => {
+      try {
+        const { data } = await API.get('/api/settings/slider');
+        if (data.success && data.images && data.images.length > 0) {
+          setSliderImages(data.images);
+        }
+      } catch (err) {
+        console.error('Failed to fetch slider images', err);
+      }
+    };
+    getSliderImages();
+  }, []);
 
   useEffect(() => {
     if (isMobileMenuOpen) {
@@ -94,17 +117,28 @@ const Navbar = ({ onSignInClick, onSignUpClick, onAddLeadClick, likeCount = 0, o
                 Add Lead
               </button>
 
+              {/* Admin Panel Button */}
+              {user.role === 'admin' && (
+                <button
+                  id="admin-btn-desktop"
+                  onClick={() => navigate(location.pathname === '/admin' ? '/' : '/admin')}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '6px',
+                    padding: '8px 18px', backgroundColor: '#0f1c2c',
+                    color: '#c9a84c', fontFamily: "'DM Sans', sans-serif",
+                    fontSize: '13px', fontWeight: 700, letterSpacing: '0.04em',
+                    border: '1.5px solid rgba(201,168,76,0.3)', borderRadius: '7px', cursor: 'pointer',
+                    transition: 'all 0.2s', whiteSpace: 'nowrap',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#1a293c'; e.currentTarget.style.borderColor = '#c9a84c'; }}
+                  onMouseLeave={e => { e.currentTarget.style.backgroundColor = '#0f1c2c'; e.currentTarget.style.borderColor = 'rgba(201,168,76,0.3)'; }}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>admin_panel_settings</span>
+                  {location.pathname === '/admin' ? 'Dashboard' : 'Admin Panel'}
+                </button>
+              )}
 
 
-              {/* Notification Icon */}
-              <button
-                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '6px', display: 'flex', alignItems: 'center', borderRadius: '50%', transition: 'background 0.2s' }}
-                title="Notifications"
-                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.07)')}
-                onMouseLeave={e => (e.currentTarget.style.background = 'none')}
-              >
-                <span className="material-symbols-outlined" style={{ fontSize: '22px', color: '#778598' }}>notifications</span>
-              </button>
 
               {/* Likes Icon with Badge */}
               <button
@@ -162,7 +196,7 @@ const Navbar = ({ onSignInClick, onSignUpClick, onAddLeadClick, likeCount = 0, o
                     fontWeight: 700, color: 'var(--nav-bg)',
                   }}>
                     {user.photo ? (
-                      <img src={user.photo} alt={user.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <img src={user.photo} alt={user.name} referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     ) : (
                       <span>{getInitials(user.name)}</span>
                     )}
@@ -274,17 +308,13 @@ const Navbar = ({ onSignInClick, onSignUpClick, onAddLeadClick, likeCount = 0, o
             {/* Auto Slider */}
             <div style={{ width: '100%', height: '120px', borderRadius: '12px', overflow: 'hidden', position: 'relative', marginBottom: '24px' }}>
               <div style={{
-                display: 'flex', width: '300%', height: '100%',
-                animation: 'slideRightToLeft 9s infinite ease-in-out'
+                display: 'flex', width: `${sliderImages.length * 100}%`, height: '100%',
+                animation: `slideRightToLeft ${sliderImages.length * 3}s infinite ease-in-out`
               }}>
-                {[
-                  'https://images.unsplash.com/photo-1556761175-5973dc0f32e7?auto=format&fit=crop&q=80&w=600',
-                  'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=600',
-                  'https://images.unsplash.com/photo-1600880292203-757bb62b4baf?auto=format&fit=crop&q=80&w=600'
-                ].map((src, i) => (
+                {sliderImages.map((src, i) => (
                   <img
                     key={i} src={src} alt={`slide-${i}`}
-                    style={{ width: '33.3333%', height: '100%', objectFit: 'cover' }}
+                    style={{ width: `${100 / sliderImages.length}%`, height: '100%', objectFit: 'cover' }}
                   />
                 ))}
               </div>
@@ -311,7 +341,7 @@ const Navbar = ({ onSignInClick, onSignUpClick, onAddLeadClick, likeCount = 0, o
                       fontSize: '15px', fontWeight: 700, color: '#0d1b2a',
                     }}>
                       {user.photo ? (
-                        <img src={user.photo} alt={user.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <img src={user.photo} alt={user.name} referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       ) : (
                         <span>{getInitials(user.name)}</span>
                       )}
@@ -330,7 +360,11 @@ const Navbar = ({ onSignInClick, onSignUpClick, onAddLeadClick, likeCount = 0, o
                   <button
                     onClick={() => {
                       setIsMobileMenuOpen(false);
-                      window.dispatchEvent(new CustomEvent('switchDashboardTab', { detail: 'all' }));
+                      if (location.pathname === '/admin') {
+                        navigate('/');
+                      } else {
+                        window.dispatchEvent(new CustomEvent('switchDashboardTab', { detail: 'all' }));
+                      }
                     }}
                     style={{
                       width: '100%', padding: '14px 16px', borderRadius: '10px',
@@ -341,8 +375,48 @@ const Navbar = ({ onSignInClick, onSignUpClick, onAddLeadClick, likeCount = 0, o
                     }}
                   >
                     <span className="material-symbols-outlined" style={{ fontSize: '20px', color: '#c9a84c' }}>dashboard</span>
-                    Dashboard
+                    {location.pathname === '/admin' ? 'Home Dashboard' : 'Dashboard'}
                   </button>
+
+                  {/* My Dashboard Button Mobile */}
+                  {location.pathname !== '/admin' && (
+                    <button
+                      onClick={() => {
+                        setIsMobileMenuOpen(false);
+                        window.dispatchEvent(new CustomEvent('switchDashboardTab', { detail: 'my' }));
+                      }}
+                      style={{
+                        width: '100%', padding: '14px 16px', borderRadius: '10px',
+                        backgroundColor: '#fff', color: '#0f1c2c',
+                        fontFamily: "'DM Sans', sans-serif", fontSize: '15px', fontWeight: 600,
+                        border: '1.5px solid rgba(15,28,44,0.15)', cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', gap: '10px',
+                      }}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: '20px', color: '#778598' }}>person</span>
+                      My Dashboard
+                    </button>
+                  )}
+
+                  {/* Admin Button Mobile */}
+                  {user.role === 'admin' && location.pathname !== '/admin' && (
+                    <button
+                      onClick={() => {
+                        setIsMobileMenuOpen(false);
+                        navigate('/admin');
+                      }}
+                      style={{
+                        width: '100%', padding: '14px 16px', borderRadius: '10px',
+                        backgroundColor: '#0f1c2c', color: '#c9a84c',
+                        fontFamily: "'DM Sans', sans-serif", fontSize: '15px', fontWeight: 600,
+                        border: '1.5px solid rgba(201,168,76,0.3)', cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', gap: '10px',
+                      }}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>admin_panel_settings</span>
+                      Admin Panel
+                    </button>
+                  )}
 
                   {/* Add Lead */}
                   <button
@@ -422,6 +496,7 @@ const Navbar = ({ onSignInClick, onSignUpClick, onAddLeadClick, likeCount = 0, o
           header { padding: 0 !important; }
           .navbar-inner { padding: 0 16px !important; }
           #add-lead-btn { display: none !important; }
+          #admin-btn-desktop { display: none !important; }
           #mobile-menu-btn { display: flex !important; }
           #desktop-auth-btns { display: none !important; }
         }

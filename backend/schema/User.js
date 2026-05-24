@@ -33,6 +33,19 @@ const userSchema = new mongoose.Schema(
       enum: ['local', 'google'],
       default: 'local',
     },
+    role: {
+      type: String,
+      enum: ['user', 'admin'],
+      default: 'user',
+    },
+    lastActive: {
+      type: Date,
+      default: Date.now,
+    },
+    loginStats: {
+      lastLoginDate: { type: Date },
+      dailyCount: { type: Number, default: 0 },
+    },
   },
   { timestamps: true }
 );

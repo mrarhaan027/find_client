@@ -5,6 +5,7 @@ import Navbar from './components/Navbar';
 import Dashboard from './pages/Dashboard';
 import SignIn from './pages/SignIn';
 import SignUp from './pages/SignUp';
+import AdminDashboard from './pages/AdminDashboard';
 import AddLead from './components/AddLead';
 import LikesDrawer from './components/LikesDrawer';
 import SiteFooter from './components/SiteFooter';
@@ -118,6 +119,7 @@ function AppContent() {
                 onSignInClick={openSignIn}
               />
             } />
+            <Route path="/admin" element={<AdminDashboard />} />
           </Routes>
         )}
         <SiteFooter />

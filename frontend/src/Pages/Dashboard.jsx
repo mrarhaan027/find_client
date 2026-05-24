@@ -13,6 +13,11 @@ const Dashboard = ({ likedIds, onLike, refreshKey, user, onAddLeadClick, onSignI
   const [sort, setSort] = useState('');
   const [filterDate, setFilterDate] = useState('');
   const [stats, setStats] = useState({ total: 0, pending: 0, interested: 0, not_interested: 0 });
+  const [sliderImages, setSliderImages] = useState([
+    'https://images.unsplash.com/photo-1556761175-5973dc0f32e7?auto=format&fit=crop&q=80&w=800',
+    'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=800',
+    'https://images.unsplash.com/photo-1600880292203-757bb62b4baf?auto=format&fit=crop&q=80&w=800'
+  ]);
 
   // Fetch Stats
   const fetchStats = React.useCallback(async () => {
@@ -26,6 +31,21 @@ const Dashboard = ({ likedIds, onLike, refreshKey, user, onAddLeadClick, onSignI
       console.error('Failed to fetch stats', err);
     }
   }, [activeTab]);
+
+  useEffect(() => {
+    // Fetch dynamic slider images
+    const getSliderImages = async () => {
+      try {
+        const { data } = await API.get('/api/settings/slider');
+        if (data.success && data.images && data.images.length > 0) {
+          setSliderImages(data.images);
+        }
+      } catch (err) {
+        console.error('Failed to fetch slider images', err);
+      }
+    };
+    getSliderImages();
+  }, []);
 
   useEffect(() => {
     // Only fetch "my" stats if user is logged in
@@ -90,17 +110,13 @@ const Dashboard = ({ likedIds, onLike, refreshKey, user, onAddLeadClick, onSignI
           {/* Mobile Auto Slider */}
           <div id="mobile-dash-slider" style={{ display: 'none', width: '100%', height: '140px', borderRadius: '14px', overflow: 'hidden', position: 'relative' }}>
             <div style={{
-              display: 'flex', width: '300%', height: '100%',
-              animation: 'dashSlideRightToLeft 9s infinite ease-in-out'
+              display: 'flex', width: `${sliderImages.length * 100}%`, height: '100%',
+              animation: `dashSlideRightToLeft ${sliderImages.length * 3}s infinite ease-in-out`
             }}>
-              {[
-                'https://images.unsplash.com/photo-1556761175-5973dc0f32e7?auto=format&fit=crop&q=80&w=800',
-                'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=800',
-                'https://images.unsplash.com/photo-1600880292203-757bb62b4baf?auto=format&fit=crop&q=80&w=800'
-              ].map((src, i) => (
+              {sliderImages.map((src, i) => (
                 <img
                   key={i} src={src} alt={`slide-${i}`}
-                  style={{ width: '33.3333%', height: '100%', objectFit: 'cover' }}
+                  style={{ width: `${100 / sliderImages.length}%`, height: '100%', objectFit: 'cover' }}
                 />
               ))}
             </div>

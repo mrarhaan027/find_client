@@ -1,8 +1,24 @@
 const jwt = require('jsonwebtoken');
+const { OAuth2Client } = require('google-auth-library');
 const User = require('../schema/User');
 
-// ── Helper: Create JWT and set cookie ──
-const sendTokenResponse = (user, statusCode, res) => {
+// ── Helper: Update Stats, Create JWT and set cookie ──
+const sendTokenResponse = async (user, statusCode, res, isNewLogin = false) => {
+  if (isNewLogin) {
+    const now = new Date();
+    const lastLogin = user.loginStats?.lastLoginDate;
+    let newDailyCount = user.loginStats?.dailyCount || 0;
+
+    if (lastLogin && lastLogin.toDateString() === now.toDateString()) {
+      newDailyCount += 1;
+    } else {
+      newDailyCount = 1;
+    }
+    user.lastActive = now;
+    user.loginStats = { lastLoginDate: now, dailyCount: newDailyCount };
+    await user.save();
+  }
+
   const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
     expiresIn: '7d',
   });
@@ -24,6 +40,8 @@ const sendTokenResponse = (user, statusCode, res) => {
     mobile: user.mobile,
     photo: user.photo,
     provider: user.provider,
+    role: user.role,
+    lastActive: user.lastActive,
   };
 
   res.status(statusCode).json({
@@ -48,8 +66,12 @@ exports.signup = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Email already registered. Please sign in.' });
     }
 
-    const user = await User.create({ name, email, password, mobile: mobile || '' });
-    sendTokenResponse(user, 201, res);
+    // First user becomes admin
+    const userCount = await User.countDocuments();
+    const role = userCount === 0 ? 'admin' : 'user';
+
+    const user = await User.create({ name, email, password, mobile: mobile || '', role });
+    await sendTokenResponse(user, 201, res, true);
   } catch (err) {
     console.error('Signup error:', err);
     res.status(500).json({ success: false, message: 'Server error. Please try again.' });
@@ -80,7 +102,7 @@ exports.signin = async (req, res) => {
       return res.status(401).json({ success: false, message: 'Invalid email or password.' });
     }
 
-    sendTokenResponse(user, 200, res);
+    await sendTokenResponse(user, 200, res, true);
   } catch (err) {
     console.error('Signin error:', err);
     res.status(500).json({ success: false, message: 'Server error. Please try again.' });
@@ -128,10 +150,68 @@ exports.getMe = async (req, res) => {
         mobile: user.mobile,
         photo: user.photo,
         provider: user.provider,
+        role: user.role,
+        lastActive: user.lastActive,
       },
     });
   } catch (err) {
     // Return 200 with success: false so browser doesn't throw 401 error in console
     res.status(200).json({ success: false, user: null });
+  }
+};
+
+// ── GOOGLE AUTH ──
+exports.googleAuth = async (req, res) => {
+  try {
+    const { credential } = req.body;
+
+    if (!credential) {
+      return res.status(400).json({ success: false, message: 'Google credential is required.' });
+    }
+
+    const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+    const ticket = await client.verifyIdToken({
+      idToken: credential,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+
+    const payload = ticket.getPayload();
+    const { email, name, picture } = payload;
+
+    if (!email) {
+      return res.status(400).json({ success: false, message: 'Could not get email from Google.' });
+    }
+
+    // Check if user already exists
+    let user = await User.findOne({ email });
+
+    if (user) {
+      // User exists — update provider to google if it was local (merge accounts)
+      if (user.provider === 'local') {
+        user.provider = 'google';
+      }
+      // Update photo from Google if not already set
+      if (!user.photo && picture) {
+        user.photo = picture;
+      }
+      await user.save();
+    } else {
+      const userCount = await User.countDocuments();
+      const role = userCount === 0 ? 'admin' : 'user';
+
+      // Create new user with Google provider
+      user = await User.create({
+        name,
+        email,
+        photo: picture || '',
+        provider: 'google',
+        role,
+      });
+    }
+
+    await sendTokenResponse(user, 200, res, true);
+  } catch (err) {
+    console.error('Google auth error:', err);
+    res.status(500).json({ success: false, message: 'Google authentication failed. Please try again.' });
   }
 };
