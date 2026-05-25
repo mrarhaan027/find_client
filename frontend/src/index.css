@@ -29,29 +29,8 @@
   --nav-text: #ffffff;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg-body: #0b1121;
-    --bg-card: #151f32;
-    --bg-card-hover: #1c273e;
-    --bg-input: #0f172a;
-    --bg-subtle: #1e293b;
-    --bg-highlight: #1e293b;
-    
-    --text-main: #f8fafc;
-    --text-muted: #cbd5e1;
-    --text-light: #94a3b8;
-    
-    --border-color: rgba(148, 163, 184, 0.25);
-    --border-light: rgba(148, 163, 184, 0.15);
-    
-    --accent-gold: #c9a84c;
-    --accent-dark: #f8fafc; /* Invert dark buttons to light in dark mode */
-    
-    --nav-bg: #151f32;
-    --nav-text: #f8fafc;
-  }
-}
+
+
 
 html, body, #root {
   min-height: 100%;
